@@ -2,135 +2,120 @@
 
 Este módulo proporciona una implementación robusta para el envío de correos electrónicos en Laravel, utilizando SMTP y sistema de colas para un manejo eficiente de los correos.
 
-## Requisitos Previos
+## Características
 
-- Laravel 8.x o superior
-- PHP 7.4 o superior
-- Configuración de base de datos (para el sistema de colas)
-- Servidor SMTP (puede usar servicios como Mailtrap, Gmail, Amazon SES, etc.)
+- Configuración SMTP simplificada
+- Sistema de límites de envío por hora
+- Monitoreo en tiempo real del estado del servicio
+- Comandos de consola para pruebas y diagnóstico
+- Integración con el sistema de colas de Laravel
+- Manejo de plantillas de correo
 
 ## Instalación
 
-1. Clone este módulo en su proyecto Laravel
-2. Copie el archivo `.env.example` a `.env` y configure las variables de entorno
-
-## Configuración
-
-### 1. Variables de Entorno
-
-Configure las siguientes variables en su archivo `.env`:
+1. Copie los archivos del módulo a su proyecto Laravel
+2. Configure las variables de entorno SMTP en su archivo `.env`:
 
 ```env
-# Configuración del servidor SMTP
 MAIL_MAILER=smtp
-MAIL_HOST=smtp.mailtrap.io
-MAIL_PORT=2525
-MAIL_USERNAME=su_username
-MAIL_PASSWORD=su_password
+MAIL_HOST=smtp.example.com
+MAIL_PORT=587
+MAIL_USERNAME=your-username
+MAIL_PASSWORD=your-password
 MAIL_ENCRYPTION=tls
-MAIL_FROM_ADDRESS=hello@example.com
+MAIL_FROM_ADDRESS=noreply@example.com
 MAIL_FROM_NAME="${APP_NAME}"
-MAIL_REPLY_TO_ADDRESS=hello@example.com
-MAIL_REPLY_TO_NAME="${APP_NAME}"
-
-# Configuración de colas para correos
-QUEUE_CONNECTION=database
-MAIL_QUEUE_NAME=emails
 ```
 
-### 2. Configuración del Servicio de Correo
+## Comandos de Consola
 
-El archivo `config/mail.php` ya está configurado con los ajustes necesarios. Asegúrese de que las variables de entorno estén correctamente establecidas.
+### Prueba de Envío (email:test)
 
-### 3. Migración para Colas (opcional)
-
-Si va a utilizar el sistema de colas, ejecute:
+Permite enviar un correo de prueba para verificar la configuración:
 
 ```bash
-php artisan queue:table
-php artisan migrate
+# Envío básico
+php artisan email:test recipient@example.com
+
+# Envío con opciones adicionales
+php artisan email:test recipient@example.com --subject="Prueba" --content="Mensaje de prueba"
+```
+
+### Estado del Servicio (email:status)
+
+Muestra información sobre el estado del servicio de correo:
+
+```bash
+# Ver estado actual
+php artisan email:status
+
+# Monitorear en tiempo real
+php artisan email:status --watch
+
+# Reiniciar contadores de límite
+php artisan email:status --reset
 ```
 
 ## Uso del Servicio de Correo
 
-### Ejemplo Básico
-
 ```php
 use App\Services\EmailService;
 
-public function enviarCorreo(EmailService $emailService)
+class ExampleController extends Controller
 {
-    $emailService->send(
-        'correo@destino.com',
-        'Asunto del Correo',
-        'emails.template',
-        ['nombre' => 'Usuario']
-    );
+    protected $emailService;
+
+    public function __construct(EmailService $emailService)
+    {
+        $this->emailService = $emailService;
+    }
+
+    public function sendEmail()
+    {
+        $this->emailService->send(
+            'recipient@example.com',
+            'Asunto del correo',
+            'emails.template-name',
+            ['key' => 'value']
+        );
+    }
 }
 ```
 
-### Envío con Archivos Adjuntos
+## Sistema de Límites
 
-```php
-$emailService->sendWithAttachment(
-    'correo@destino.com',
-    'Asunto del Correo',
-    'emails.template',
-    ['nombre' => 'Usuario'],
-    '/ruta/al/archivo.pdf'
-);
-```
+El módulo incluye un sistema de límites de envío por hora para prevenir el abuso:
 
-## Plantillas de Correo
-
-Las plantillas de correo se encuentran en `resources/views/emails/`. Puede crear nuevas plantillas siguiendo la estructura de Blade.
-
-Ejemplo de plantilla:
-
-```blade
-<!-- resources/views/emails/template.blade.php -->
-<h1>Hola {{ $nombre }}!</h1>
-<p>Este es un correo de ejemplo.</p>
-```
-
-## Sistema de Colas
-
-Para procesar los correos en segundo plano:
-
-1. Inicie el worker de colas:
-
-```bash
-php artisan queue:work --queue=emails
-```
-
-2. Para enviar correos a la cola:
-
-```php
-$emailService->queue(
-    'correo@destino.com',
-    'Asunto del Correo',
-    'emails.template',
-    ['nombre' => 'Usuario']
-);
-```
-
-## Pruebas
-
-1. Configure Mailtrap u otro servicio de prueba de correos
-2. Envíe un correo de prueba:
-
-```php
-php artisan tinker
-app(App\Services\EmailService::class)->send('prueba@email.com', 'Prueba', 'emails.template', ['nombre' => 'Test']);
-```
+- Monitoreo de correos enviados por hora
+- Límite configurable de envíos por hora
+- Reinicio automático de contadores
+- Comando para reinicio manual de contadores
 
 ## Solución de Problemas
 
-- Verifique la configuración SMTP en el archivo `.env`
-- Revise los logs en `storage/logs/laravel.log`
-- Asegúrese de que el servicio SMTP esté accesible
-- Verifique que las plantillas de correo existan y estén correctamente nombradas
+### Problemas Comunes
+
+1. **Error de conexión SMTP**
+
+   - Verifique las credenciales en el archivo `.env`
+   - Confirme que el puerto SMTP no esté bloqueado
+   - Valide la configuración de encriptación (TLS/SSL)
+
+2. **Límite de envío alcanzado**
+
+   - Use el comando `email:status` para verificar el estado
+   - Reinicie los contadores si es necesario
+   - Considere aumentar el límite en la configuración
+
+3. **Errores en las plantillas**
+   - Verifique la existencia de la plantilla en `resources/views/emails`
+   - Valide la sintaxis de Blade en la plantilla
+   - Confirme que todas las variables requeridas estén definidas
 
 ## Contribución
 
-Si encuentra algún problema o tiene sugerencias de mejora, no dude en crear un issue o enviar un pull request.
+Si encuentra algún problema o tiene sugerencias de mejora, por favor abra un issue o envíe un pull request.
+
+## Licencia
+
+Este módulo está licenciado bajo la Licencia MIT. Consulte el archivo LICENSE para más detalles.
